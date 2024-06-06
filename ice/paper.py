@@ -16,7 +16,7 @@ from structlog.stdlib import get_logger
 from ice.cache import diskcache
 from ice.environment import env
 from ice.settings import OUGHT_ICE_DIR
-from ice.parse_pdf import parse_pdf
+
 
 log = get_logger()
 
@@ -156,15 +156,17 @@ class Paper(BaseModel):
         document_id = file.name
 
         if file.suffix == ".pdf":
+            from ice.parse_pdf import parse_pdf
+
             paragraph_dicts = parse_pdf(file)
         elif file.suffix == ".txt":
             paragraph_dicts = parse_txt(file)
         else:
             raise ValueError(f"Unknown extension: {file.suffix}")
-        return paragraph_dicts
+
         if len(paragraph_dicts) < 3:
             log.warn(f"paper {document_id} only has {len(paragraph_dicts)} paragraphs")
-
+        # return Paper(paragraphs=paragraph_dicts, document_id=)
         return Paper.parse_obj(
             dict(paragraphs=paragraph_dicts, document_id=document_id)
         )

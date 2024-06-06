@@ -3,15 +3,15 @@ from typing import Literal
 from bs4 import BeautifulSoup
 import re
 from langchain_community.docstore.document import Document
-from ice.paper import Paragraph, Section, Paper
+from ice.paper import Paragraph, Section
 from ice.cache import diskcache
 from pathlib import Path
 
 SectionType = Literal["abstract", "main", "back"]
 
 
-@diskcache
-def parse_pdf(pdf_path: Path) -> Paper:
+@diskcache()
+def parse_pdf(pdf_path: Path) -> list[dict]:
     loader = PDFMinerPDFasHTMLLoader(pdf_path)
     data = loader.load()[0]
 
@@ -99,7 +99,7 @@ def section_type_parser(section_str: str) -> SectionType:
         return "main"
 
 
-def snippet_to_paragraph_parser(snippets: list) -> Paper:
+def snippet_to_paragraph_parser(snippets: list) -> list:
     paragraphs = []
     for snippet in snippets:
         sections = [Section(title=snippet.metadata["heading"])]
@@ -113,4 +113,4 @@ def snippet_to_paragraph_parser(snippets: list) -> Paper:
         }
         par = Paragraph(**data)
         paragraphs.append(par)
-    return Paper(paragraphs=paragraphs)
+    return paragraphs
