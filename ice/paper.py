@@ -16,6 +16,7 @@ from structlog.stdlib import get_logger
 from ice.cache import diskcache
 from ice.environment import env
 from ice.settings import OUGHT_ICE_DIR
+from ice.parse_pdf import parse_pdf
 
 log = get_logger()
 
@@ -93,9 +94,9 @@ def parse_txt(file: Path) -> list[dict]:
                                 "number": section_title_number(current_section),
                             }
                         ],
-                        "sectionType": "abstract"
-                        if current_section == "Abstract"
-                        else "main",
+                        "sectionType": (
+                            "abstract" if current_section == "Abstract" else "main"
+                        ),
                     }
                 )
     return body
@@ -112,15 +113,15 @@ def save_pdf_text(paper_body: list[dict], file_name: str):
     )
 
 
-@diskcache()
-def parse_pdf(file: Path) -> list[dict]:
-    with env().spinner(f"[bold green] Parsing {file.name}"):
-        files = {"pdf": open(file, "rb")}
-        r = requests.post(PDF_PARSER_URL, files=files)
-        body = r.json()
-        save_pdf_text(body, file.name)
-    env().print(f"Parsed {file.name}.")
-    return body
+# @diskcache()
+# def parse_pdf(file: Path) -> list[dict]:
+#     with env().spinner(f"[bold green] Parsing {file.name}"):
+#         files = {"pdf": open(file, "rb")}
+#         r = requests.post(PDF_PARSER_URL, files=files)
+#         body = r.json()
+#         save_pdf_text(body, file.name)
+#     env().print(f"Parsed {file.name}.")
+#     return body
 
 
 class Section(BaseModel):
@@ -160,7 +161,7 @@ class Paper(BaseModel):
             paragraph_dicts = parse_txt(file)
         else:
             raise ValueError(f"Unknown extension: {file.suffix}")
-
+        return paragraph_dicts
         if len(paragraph_dicts) < 3:
             log.warn(f"paper {document_id} only has {len(paragraph_dicts)} paragraphs")
 
