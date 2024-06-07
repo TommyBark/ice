@@ -9,7 +9,7 @@ from pathlib import Path
 
 SectionType = Literal["abstract", "main", "back"]
 
-
+#TODO: Remove langchain loader and use pdfminer directly
 @diskcache()
 def parse_pdf(pdf_path: Path) -> list[dict]:
     loader = PDFMinerPDFasHTMLLoader(pdf_path)
