@@ -109,8 +109,8 @@ async def _post(
 ) -> Union[dict, TooLongRequestError]:
     """Send a POST request to the OpenAI API and return the JSON response."""
     cache_id  # unused
-
-    async with httpx.AsyncClient() as client:
+    limits = httpx.Limits(max_keepalive_connections=10, max_connections=20)
+    async with httpx.AsyncClient(limits=limits) as client:
         response = await client.post(
             f"{OPENAI_BASE_URL}/{endpoint}",
             json=json,
