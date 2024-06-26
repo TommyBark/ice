@@ -1,6 +1,7 @@
 from collections.abc import Mapping
 from typing import Optional
 from typing import Union
+from typing import List
 
 import httpx
 from httpx import Response
@@ -35,25 +36,20 @@ def log_attempt_number(retry_state):
         exception = retry_state.outcome.exception()
         exception_name = exception.__class__.__name__
         exception_message = str(exception)
-        OPENAI_ORG_ID = settings.OPENAI_ORG_ID
-        log.warning(
-            f"Retrying ({exception_name}: {exception_message}): "
-            f"Attempt #{retry_state.attempt_number} ({OPENAI_ORG_ID = })..."
-        )
+        log.warning(f"Retrying ({exception_name}: {exception_message}): ")
 
 
 def make_headers() -> dict[str, str]:
     headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
+        "content-type": "application/json",
+        "x-api-key": f"{settings.ANTHROPIC_API_KEY}",
+        "anthropic-version": "2023-06-01",
     }
-    if settings.OPENAI_ORG_ID:
-        headers["OpenAI-Organization"] = settings.OPENAI_ORG_ID
     return headers
 
 
 RETRYABLE_STATUS_CODES = {408, 429, 502, 503, 504}
-OPENAI_BASE_URL = "https://api.openai.com/v1"
+ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
 
 
 def is_retryable_HttpError(e: BaseException) -> bool:
@@ -107,29 +103,22 @@ def raise_if_too_long_error(prompt: object, response: Response) -> None:
 async def _post(
     endpoint: str, json: dict, timeout: Optional[float] = None, cache_id: int = 0
 ) -> Union[dict, TooLongRequestError]:
-    """Send a POST request to the OpenAI API and return the JSON response."""
+    """Send a POST request to the Anthropic API and return the JSON response."""
     cache_id  # unused
     limits = httpx.Limits(max_keepalive_connections=10, max_connections=20)
     _timeout = httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=timeout)
     async with httpx.AsyncClient(limits=limits) as client:
+        headers = make_headers()
         response = await client.post(
-            f"{OPENAI_BASE_URL}/{endpoint}",
+            f"{ANTHROPIC_BASE_URL}/{endpoint}",
             json=json,
-            headers=make_headers(),
+            headers=headers,
             timeout=_timeout or 60,
         )
         if response.status_code == 429:
             raise RateLimitError(response)
-        try:
-            raise_if_too_long_error(prompt=json.get("prompt"), response=response)
-        except TooLongRequestError as tlre:
-            # Hack alert: Don't raise here so this gets cached
-            return tlre
         response.raise_for_status()
         return response.json()
-
-
-# TODO: support more model types for conversion
 
 
 def extract_total_tokens(response: dict) -> int:
@@ -137,42 +126,51 @@ def extract_total_tokens(response: dict) -> int:
 
 
 @trace
-async def openai_complete(
+async def anthropic_complete(
     prompt: str,
     stop: Optional[str] = "\n",
     top_p: float = 1,
     temperature: float = 0,
-    model: str = "gpt-3.5-turbo-instruct",
+    model: str = "claude-instant-1.2",
     max_tokens: int = 256,
     logprobs: Optional[int] = None,
     logit_bias: Optional[Mapping[str, Union[int, float]]] = None,
-    n: int = 1,
-    echo: bool = False,
+    n: Optional[int] = None,
+    echo: Optional[bool] = None,
     cache_id: int = 0,  # for repeated non-deterministic sampling using caching
 ) -> dict:
-    """Send a completion request to the OpenAI API and return the JSON response."""
+    """Send a completion request to the Anthropic API and return the JSON response."""
+    # ANTHROPIC_API doesn't support logprobs, logit_bias, n, or echo
+
+    # Completion prompt has to contain roles Human and Assistant
+    prompt = "\n\nHuman:" + prompt
+    if "Assistant:" not in prompt:
+        prompt += "\n\nAssistant:"
+
     params = {
         "prompt": prompt,
-        "stop": stop,
         "top_p": top_p,
         "temperature": temperature,
         "model": model,
-        "echo": echo,
-        "max_tokens": max_tokens,
-        "logprobs": logprobs,
-        "n": n,
+        "max_tokens_to_sample": max_tokens,
     }
-    if logit_bias:
-        params["logit_bias"] = logit_bias  # type: ignore[assignment]
-    response = await _post("completions", json=params, cache_id=cache_id)
+    if stop is not None:
+        stop_sequences = list(stop)
+        params["stop_sequences"] = stop_sequences
+    response = await _post(
+        "complete",
+        params,
+        cache_id=cache_id,
+    )
     if isinstance(response, TooLongRequestError):
         raise response
+
     add_fields(davinci_equivalent_tokens=extract_total_tokens(response))
     return response
 
 
 @trace
-async def openai_chatcomplete(
+async def anthropic_chatcomplete(
     messages: list[dict[str, str]],
     stop: Optional[str] = "\n",
     top_p: float = 1,
@@ -183,38 +181,15 @@ async def openai_chatcomplete(
     n: int = 1,
     cache_id: int = 0,  # for repeated non-deterministic sampling using caching
 ) -> dict:
-    """Send a completion request to the OpenAI API and return the JSON response."""
-    params = {
-        "messages": messages,
-        "stop": stop,
-        "top_p": top_p,
-        "temperature": temperature,
-        "model": model,
-        "max_tokens": max_tokens,
-        "n": n,
-    }
-    if logit_bias:
-        params["logit_bias"] = logit_bias  # type: ignore[assignment]
-    response = await _post("chat/completions", json=params, cache_id=cache_id)
-    if isinstance(response, TooLongRequestError):
-        raise response
-    add_fields(total_tokens=extract_total_tokens(response))
-    return response
+    """Send a completion request to the Anthropic API and return the JSON response."""
+    pass
 
 
 @trace
-async def openai_embedding(
+async def anthropic_embedding(
     input: Union[str, list[str]],
-    model: str = "text-embedding-ada-002",
+    model: str,
     cache_id: int = 0,  # for repeated non-deterministic sampling using caching
 ) -> dict:
-    """Send an embedding request to the OpenAI API and return the JSON response."""
-    params = {
-        "input": input,
-        "model": model,
-    }
-    response = await _post("embeddings", json=params, cache_id=cache_id)
-    if isinstance(response, TooLongRequestError):
-        raise response
-    add_fields(total_tokens=extract_total_tokens(response))
-    return response
+    """Send an embedding request to the Anthropic API and return the JSON response."""
+    pass

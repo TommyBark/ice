@@ -7,6 +7,7 @@ from ice.agents.base import Agent as Agent  # Explicit re-export
 from ice.agents.cached import CachedAgent
 from ice.agents.fake import FakeAgent
 from ice.agents.human import HumanAgent
+from ice.agents.anthropic import AnthropicAIAgent
 from ice.agents.openai import OpenAIAgent
 from ice.agents.openai import OpenAIChatCompletionAgent
 from ice.agents.openai import OpenAIEmbeddingAgent
@@ -21,17 +22,17 @@ try:
 except ImportError:
 
     class Tfew(Agent):
-        def __init__(self, *args, **kwargs):
-            ...
+        def __init__(self, *args, **kwargs): ...
 
 
 MACHINE_AGENTS = {
     "chatgpt": lambda: OpenAIChatCompletionAgent(model="gpt-3.5-turbo"),
     "gpt-4": lambda: OpenAIChatCompletionAgent(model="gpt-4"),
     "embedding-ada": lambda: OpenAIEmbeddingAgent(model="text-embedding-ada-002"),
-    "instruct": lambda: OpenAIAgent(),
-    "instruct-reasoning": lambda: OpenAIReasoningAgent(),
-    "instruct-reasoning-crowd": lambda: OpenAIReasoningAgent(num_workers=8),
+    "openai-instruct": lambda: OpenAIAgent(),
+    "openai-instruct-reasoning": lambda: OpenAIReasoningAgent(),
+    "openai-instruct-reasoning-crowd": lambda: OpenAIReasoningAgent(num_workers=8),
+    "anthropic-instruct": lambda: AnthropicAIAgent(),
     "curie": lambda: OpenAIAgent(model="curie"),
     "qasper": lambda: SquadAgent(),
     "mono-t5": lambda: OughtInferenceAgent(engine="mono-t5-base"),
@@ -53,13 +54,13 @@ def _get_machine_agent(agent_name: str) -> Agent:
 
 def _get_augmented_agent(agent_name: Optional[str] = None) -> AugmentedAgent:
     h_agent = agent_policy(mode="human", agent_name=agent_name)
-    m_agent = agent_policy(mode="machine", agent_name=agent_name)
+    m_agent = agent_policy(mode="machine-openai", agent_name=agent_name)
     return AugmentedAgent(human=h_agent, machine=m_agent)
 
 
 def _get_approval_agent(agent_name: Optional[str] = None) -> ApprovalAgent:
     h_agent = agent_policy(mode="human", agent_name=agent_name)
-    m_agent = agent_policy(mode="machine", agent_name=agent_name)
+    m_agent = agent_policy(mode="machine-openai", agent_name=agent_name)
     return ApprovalAgent(base_agent=m_agent, approval_agent=h_agent)
 
 
@@ -70,12 +71,14 @@ def agent_policy(mode: Mode, agent_name: Optional[str] = None) -> Agent:
         return _get_augmented_agent(agent_name)
     elif mode == "augmented-cached":
         return CachedAgent(_get_augmented_agent(agent_name))
-    elif mode == "machine":
-        return _get_machine_agent(agent_name or "instruct")
+    elif mode == "machine-openai":
+        return _get_machine_agent(agent_name or "openai-instruct")
+    elif mode == "machine-anthropic":
+        return _get_machine_agent(agent_name or "anthropic-instruct")
     elif mode == "machine-cached":
         return CachedAgent(
-            _get_machine_agent(agent_name or "instruct"),
-            cache_name=f"{(agent_name or 'instruct').replace('-', '_')}_cached",
+            _get_machine_agent(agent_name or "openai-instruct"),
+            cache_name=f"{(agent_name or 'openai-instruct').replace('-', '_')}_cached",
         )
     elif mode == "fake" or mode == "test":
         return FakeAgent()

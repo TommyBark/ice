@@ -376,7 +376,7 @@ class PlaceboDialogs(Recipe):
         paragraph_infos = await map_async(
             paragraphs,
             lambda paragraph: self.analyze_paragraph(paragraph, experiment),
-            max_concurrency=10 if self.mode == "machine" else 1,
+            max_concurrency=10 if "machine" in self.mode else 1,
             show_progress_bar=True,
         )
 
@@ -402,9 +402,11 @@ class PlaceboDialogs(Recipe):
                     experiment=experiment,
                     classifications=[
                         aggregate_used["answer"],
-                        "Placebo"
-                        if has_placebo_info
-                        else "No placebo or placebo not mentioned",
+                        (
+                            "Placebo"
+                            if has_placebo_info
+                            else "No placebo or placebo not mentioned"
+                        ),
                     ],
                     answer=placebo_result,
                     result=placebo_result,
