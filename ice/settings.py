@@ -33,6 +33,7 @@ class Settings(BaseSettings):
 
     # note these attributes are read differently- see [__getattribute__]
     OPENAI_API_KEY: str = ""
+    ANTHROPIC_API_KEY: str = ""
     OUGHT_INFERENCE_API_KEY: str = ""
     ELICIT_AUTH_TOKEN: str = ""
 
@@ -56,6 +57,7 @@ class Settings(BaseSettings):
         result = super().__getattribute__(name)
         prompts = dict(
             OPENAI_API_KEY="Enter OpenAI API key (you can get this from https://beta.openai.com/account/api-keys): ",
+            ANTHROPIC_API_KEY="Enter Anthropic API key (you can get this from https://console.anthropic.com/settings/keys): ",
             OUGHT_INFERENCE_API_KEY=None,
             ELICIT_AUTH_TOKEN="Enter Elicit Auth Token (you can find it by checking idToken in cookies for Elicit. "
             "The cookie should NOT start with Bearer; it should just be a string of letters and numbers): ",

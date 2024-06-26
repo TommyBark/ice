@@ -53,7 +53,7 @@ class Recipe(TracedABC, Generic[RecipeSettings]):
     )
 
     def __init__(
-        self, mode: Mode = "machine", settings: Optional[RecipeSettings] = None
+        self, mode: Mode = "machine-openai", settings: Optional[RecipeSettings] = None
     ):
         self.mode = mode
         self.s = settings or self.defaults()  # type: ignore[call-arg,misc]
@@ -92,7 +92,7 @@ class Recipe(TracedABC, Generic[RecipeSettings]):
         return agent_policy(mode=self.mode, agent_name=agent_name)
 
     def max_concurrency(self) -> int:
-        return 10 if self.mode == "machine" else 1
+        return 10 if "machine" in self.mode else 1
 
     def __str__(self) -> str:
         return self.__class__.__name__
@@ -115,7 +115,7 @@ def function_recipe_from_path(path: str) -> FunctionBasedRecipe:
 
 class RecipeHelper:
     def __init__(self):
-        self._mode: Optional[Mode] = "machine"
+        self._mode: Optional[Mode] = "machine-openai"
         self.all_recipes: list[FunctionBasedRecipe] = []
 
     def main(self, main: FunctionBasedRecipe):
@@ -164,7 +164,7 @@ class RecipeHelper:
         @merge_args(main)
         def cli(
             *args,
-            mode: Mode = "machine",
+            mode: Mode = "machine-openai",
             trace: bool = True,
             **kwargs,
         ):
