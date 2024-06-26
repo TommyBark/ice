@@ -38,14 +38,9 @@ class OpenAIAgent(Agent):
         verbose: bool = False,
         default: str = "",
         max_tokens: int = 256,
-        truncate: bool = False,
     ) -> str:
         """Generate an answer to a question given some context."""
 
-        MAX_CONTEXT_LENGTH = 4096
-        if truncate:
-            if n_tokens(prompt) > MAX_CONTEXT_LENGTH:
-                prompt = prompt[:MAX_CONTEXT_LENGTH]
         if verbose:
             self._print_markdown(prompt)
         response = await self._complete(prompt, stop=stop, max_tokens=max_tokens)
@@ -60,14 +55,9 @@ class OpenAIAgent(Agent):
         context,
         default: str = "",
         verbose: bool = False,
-        truncate: bool = False,
     ) -> dict[str, float]:
         """Generate a probability distribution over the next token given some context."""
 
-        MAX_CONTEXT_LENGTH = 4096
-        if truncate:
-            if n_tokens(context) > MAX_CONTEXT_LENGTH:
-                context = context[:MAX_CONTEXT_LENGTH]
         if verbose:
             self._print_markdown(context)
         response = await self._complete(context, logprobs=5, max_tokens=1)
@@ -83,7 +73,6 @@ class OpenAIAgent(Agent):
         choices: tuple[str, ...],
         default: Optional[str] = None,
         verbose: bool = False,
-        truncate: bool = False,
     ) -> tuple[dict[str, float], Optional[str]]:
         """Generate a classification from a list of choices given some context and a question."""
         if verbose:
@@ -100,7 +89,7 @@ class OpenAIAgent(Agent):
             default = ""
 
         prediction = await self.predict(
-            context=prompt_with_prefix, default=default, truncate=truncate
+            context=prompt_with_prefix, default=default
         )
 
         rel_probs = self._compute_relative_probs(choices, choice_prefix, prediction)

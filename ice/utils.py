@@ -398,5 +398,14 @@ def n_tokens(text: str) -> int:
     return len(make_gpt2_tokenizer().tokenize(text))
 
 
+def truncate_prompt(prompt: str, max_tokens: int = 4000) -> str:
+    tokenizer = make_gpt2_tokenizer()
+    tokens = tokenizer.encode(prompt)
+    if len(tokens) > max_tokens:
+        tokens = tokens[:max_tokens]
+
+    return tokenizer.decode(tokens)
+
+
 def latest_commit_hash():
     return subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("utf-8").strip()
