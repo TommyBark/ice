@@ -5,7 +5,7 @@ from typing import Any
 from typing import Optional
 from typing import TYPE_CHECKING
 
-from pydantic_settings import BaseSettings
+from pydantic import BaseSettings
 from structlog import get_logger
 
 from .logging import log_lock
@@ -25,7 +25,7 @@ class Settings(BaseSettings):
         Path(__file__).parent.parent / "gold_standards/gold_standards.csv"
     )
     GS_QUOTE_FOUND_THRESHOLD: float = 0.75
-    OUGHT_ICE_HOST: str = "0.0.0.0"
+    OUGHT_ICE_HOST: str = "localhost"  # "0.0.0.0"
     OUGHT_ICE_PORT: int = 8935
     OUGHT_ICE_AUTO_SERVER: bool = True
     OUGHT_ICE_AUTO_BROWSER: bool = True
